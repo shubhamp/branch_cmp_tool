@@ -1,0 +1,369 @@
+#
+#tool for differentiating between projects of two branches in different folder
+#
+#
+#
+#
+
+
+
+#branch_folder1=$1
+
+#argument 1 is folder where first branch is initiated
+
+
+
+#branch_folder2=$2 
+
+#argument 2 is folder where second branch is initiated
+
+ 
+
+#argument 3 is name of the project
+
+
+
+clear
+
+readonly OLDPWD=$(pwd)
+
+#dirty hack for making it read only. pardon me for the readonly warnings. 
+
+
+
+#echo -e "branch_1 folder is $branch_folder1"
+
+#echo -e "branch_2 folder is $branch_folder2"
+
+#echo -e "project name is $3"
+
+
+
+cp sample.html output.html
+
+
+
+#function for reading projects from a file and passing it to the DiffProj function
+
+fileread(){
+
+FILENAME=$3
+
+
+
+while read -r LINE
+
+do
+
+#       echo "file is $FILENAME ; line is $LINE "
+
+        DiffProj "$1" "$2" "$LINE"
+
+done < $FILENAME
+
+}
+
+
+
+#function for generating the output.html file from the file returned from diffv4.py tool
+
+htmlgen(){
+
+sed -i -e '/center/r diff_log.html' output.html
+
+rm -rf diff_log.html
+
+}
+
+
+
+#function for syncing down a project and comparing the git logs using diffv4.py tool (PS: thanks Ana..)
+
+DiffProj(){
+
+#echo "in DiffProj"
+
+
+
+cd "$1"
+
+#into folder for first branch
+
+
+
+echo "syncing $3 in $1" 
+
+repo sync "$3" -j8
+
+#sync the project in folder for first branch
+
+
+
+project=`echo $3 | sed 's|/|\\\/|g'`
+
+#echo "$project"
+
+#make project location of the form "folder1\/folder2\/folder3\/folder4.."
+
+
+
+line=`sed -n "/name=\"${project}\"/ =" ./.repo/manifests/default.xml` 
+
+#line number for project name
+
+#echo "line is $line"
+
+
+
+line_=`expr $line + 1`
+
+#line number for corresponding path name
+
+#echo "line number is $line_"
+
+path=`sed -n "${line_} s/ *//
+
+        ${line_} s/path=\"//
+
+        ${line_} s/\"//p" ./.repo/manifests/default.xml`
+
+#path name for project where .git exists
+
+
+
+#echo "path is $path"
+
+
+
+cd "$path" 
+
+#move to project path
+
+#pwd
+
+git log > "${OLDPWD}/${1}.log" 
+
+clear
+
+#save git log file for first branch to main folder
+
+
+
+cd "${OLDPWD}" 
+
+#cd ..
+
+#out of folder for first branch; in main folder
+
+
+
+cd "$2"
+
+#into folder for second branch
+
+
+
+echo "syncing $3 in $2" 
+
+repo sync "$3" -j8 
+
+#sync the project in folder for second branch
+
+
+
+cd "$path" 
+#move to project path
+
+#pwd
+
+
+
+git log > "${OLDPWD}/${2}.log" 
+
+#save git log file for second branch to main folder
+
+clear
+
+
+
+
+
+cd "${OLDPWD}" 
+
+#cd ..
+
+#out of folder for second branch; in main branch
+
+
+
+python ./diffv4.py $1.log $2.log 
+
+#run the diffv4.py script
+
+#saves the output as diff_log.html
+
+
+
+htmlgen
+
+}
+
+
+
+#This function does not sync down the project just takes the git logs and passes it to the diff tool 
+
+QuickDiff(){
+
+#echo "in DiffProj"
+
+
+
+cd "$1" 
+
+#into folder for first branch
+
+
+
+
+
+project=`echo $3 | sed 's|/|\\\/|g'`
+
+#echo "$project"
+
+#make project location of the form "folder1\/folder2\/folder3\/folder4.."
+
+
+
+line=`sed -n "/name=\"${project}\"/ =" ./.repo/manifests/default.xml`
+
+#line number for project name
+
+#echo "line is $line"
+
+
+
+
+
+line_=`expr $line + 1`
+
+#line number for corresponding path name
+
+#echo "line number is $line_"
+
+path=`sed -n "${line_} s/ *//
+
+        ${line_} s/path=\"//
+
+        ${line_} s/\"//p" ./.repo/manifests/default.xml`
+
+#path name for project where .git exists
+
+
+
+#echo "path is $path"
+
+
+
+cd "$path" 
+
+#move to project path
+
+#pwd
+
+git log > "${OLDPWD}/${1}.log" 
+
+clear
+
+#save git log file for first branch to main folder
+
+
+
+cd "${OLDPWD}" 
+
+#cd ..
+
+#out of folder for first branch; in main folder
+
+
+
+cd "$2" 
+
+#into folder for second branch
+
+
+
+cd "$path" 
+
+#move to project path
+
+#pwd
+
+
+
+git log > "${OLDPWD}/${2}.log" 
+
+#save git log file for second branch to main folder
+
+clear
+
+
+
+
+
+cd "${OLDPWD}" 
+
+#cd ..
+
+#out of folder for second branch; in main branch
+
+
+
+python ./diffv4.py $1.log $2.log
+
+#run the diffv4.py script
+
+#saves the output as html
+
+
+
+htmlgen
+
+}
+
+
+
+#option list
+
+while [ "$1" != "" ]; do
+
+        case $1 in
+
+                -f | --filename )       shift
+
+                                        fileread "$1" "$2" "$3"
+
+                                        exit
+
+                                        ;;
+
+                -q | --quick )          shift
+
+                                        QuickDiff "$1" "$2" "$3"
+
+                                        exit
+
+                                        ;;
+
+                * )                     DiffProj "$1" "$2" "$3"
+
+                                        exit
+
+                                        ;;
+
+        esac
+
+done
+
+
+
+#DiffProj "$1" "$2" "$3"
